@@ -1,0 +1,318 @@
+
+main:
+ addi $sp,$sp,-4
+ sw $ra,0($sp)
+ addi $s0,$0,69 #x coordinate
+ addi $s1,$0,24 #y coordinate
+ addi $s2,$0,0  #angle
+ addi $s3,$0,0  #magnitude
+ #jal VectoringMode
+ #addi $ra,$0,0x00400024
+ j VectoringMode
+ returned:
+ lw $ra,0($sp)
+ addi $sp,$sp,4
+ j done
+
+VectoringMode:
+ #x, y, angle and hypotenuse are kept in their registers
+ #xNew and yNew is at $t0 and $t1 respictively
+ #angInd is in $t3 and the loop index is in $t4
+ #$t5 is to keep the retrieved angle used in the loop
+ #$t6 is used to check the value of y and the loop index
+ #$t7 is used to keep shifted value of y for the loop operations
+ #$s4 is used to keep shifted value of x for the loop operations
+ #$a0 is used to store angInd*4
+ #$a2 is 24
+ #$a3 is 1
+ #$t2 is 5
+ #$s7 indicates that the angle has been calculated(done >> $s7 = 1)
+ addi $sp,$sp,-28
+ sw $s0,0 ($sp)
+ sw $s1,4 ($sp)
+ #sw $s2,8 ($sp)
+ #sw $s3,12($sp)
+ sw $ra,16($sp)
+ sw $s6,20($sp)
+ sw $s7,24($sp)
+ #storing the array
+ addi $sp,$sp,-24
+ addi $s6,$0,1
+ sw $s6,20($sp)
+
+ addi $s6,$0,3
+ sw $s6,16($sp)
+
+ addi $s6,$0,7
+ sw $s6,12($sp)
+
+ addi $s6,$0,14
+ sw $s6,8 ($sp)
+
+ addi $s6,$0,26
+ sw $s6,4 ($sp)
+
+ addi $s6,$0,45
+ sw $s6,0 ($sp)
+ 
+ addi $a3,$0,1
+ addi $a2,$0,24
+ addi $t2,$0,5
+ add $s7,$0,$0
+ addi $s6,$0,2
+ addi $s5,$0,3
+ addi $t8,$0,4
+
+ beq $s0,$0,if_xIs0_
+ beq $s1,$0,if_yIs0_
+ j else
+ if_xIs0_:
+ 	addi $s2,$0,90
+ 	add $s3,$0,$s1
+ 	j returned
+ if_yIs0_:
+ 	add $s2,$0,$0
+ 	add $s3,$0,$s0
+ 	j returned
+ else:
+ 	add $t3,$0,$0
+ 	add $t4,$0,$0
+ 	add $t6,$0,$0#used to check on the value of y
+ 	loop:
+ 		beq $t4,$a2,loopDone
+ 		#getting shifted coordinates
+ 		add $t7,$0,$s1
+ 		add $s4,$0,$s0
+ 		j Alg_right_shift
+ 		shiftDone:
+ 		#getting an angle from the array
+ 		beq $t3,$0,angIndIsZero
+ 		beq $t3,$a3,angIndIsOne
+ 		beq $t3,$s6,angIndIsTwo
+ 		beq $t3,$s5,angIndIsThree
+ 		beq $t3,$t8,angIndIsFour
+ 		beq $t3,$t2,angIndIsFive
+ 		angIndIsZero:
+ 			lw $t5,0($sp)
+ 			j angleReady
+ 		angIndIsOne:
+ 			lw $t5,4($sp)
+ 			j angleReady
+ 		angIndIsTwo:
+ 			lw $t5,8($sp)
+ 			j angleReady
+ 		angIndIsThree:
+ 			lw $t5,12($sp)
+ 			j angleReady
+ 		angIndIsFour:
+ 			lw $t5,16($sp)
+ 			j angleReady
+ 		angIndIsFive:
+ 			lw $t5,20($sp)
+
+ 		angleReady:
+ 		slt $t6,$0,$s1#if y is positive, set $t6
+ 		beq $t6,$a3,positiveY
+ 		beq $t6,$0,negativeY
+ 		positiveY:
+ 			add $t0,$s0,$t7
+ 			sub $t1,$s1,$s4
+
+ 			add $s0,$0,$t0
+			add $s1,$0,$t1
+
+ 			add $s2,$s2,$t5
+ 			j conditionDone
+ 		negativeY:
+ 			sub $t0,$s0,$t7
+ 			add $t1,$s1,$s4
+
+ 			add $s0,$0,$t0
+			add $s1,$0,$t1
+
+ 			sub $s2,$s2,$t5
+ 		conditionDone:
+ 		add $t4,$t4,$a3
+ 		slt $t6,$t4,$t2
+ 		beq $t6,$a3,incrementOfAngInd
+ 		j loopDone
+ 		incrementOfAngInd:
+ 		add $t3,$t3,$a3
+ 		j loop
+ 	loopDone:
+ addi $s7,$0,1
+ addi $t3,$0,1 #so the shift rutine shifts x by 1
+ add $s4,$0,$s0
+ j Alg_right_shift
+ MagnitudeCalculated:
+ add $s3,$0,$s4
+ add $sp,$sp,24
+ lw $s0,0 ($sp)
+ lw $s1,4 ($sp)
+ #lw $s2,8 ($sp)
+ #lw $s3,12($sp)
+ lw $ra,16($sp)
+ lw $s6,20($sp)
+ lw $s7,24($sp)
+ add $sp,$sp,28
+ j returned
+
+
+
+Alg_right_shift:
+ #right shift using division
+ #this routine right shifts $t7(y) and $s4(x) by number equal to the contents of $t3(angInd : not shifted)
+ #so the results are $t7(y >> angInd) and $s4(x >> angInd)
+
+ #working:
+ #$s0 stores the value by which the coordinate is shifted as (2^value), it is the return of pwrOfTwo
+ addi $sp,$sp,-16
+ sw $s0,12($sp)
+ sw $s1,8($sp)
+ sw $s2,4($sp)
+ sw $s3,0($sp)
+ j pwrOfTwo
+ pwrReturned:
+ add $s0,$0,$v0
+ j divide
+ divideReturned:
+ lw $s0,12($sp)
+ lw $s1,8($sp)
+ lw $s2,4($sp)
+ lw $s3,0($sp)
+ addi $sp,$sp,16
+ beq $a3,$s7,MagnitudeCalculated
+ j shiftDone
+
+pwrOfTwo:
+ #uses $t3(angInd)
+ #operates on $a0 as the result storage(multiplier) and $a1 as a loop index
+ #uses $a2 to provide a multiplicand to Mul
+
+ beq $t3,$0,TwoPowerZero
+
+ addi $sp,$sp,-12
+ sw $a0,0($sp)
+ sw $a1,4($sp)
+ sw $a2,8($sp)
+
+ addi $a0,$0,2
+ addi $a1,$0,1
+ addi $a2,$0,2
+ pwrLoop:
+ 	beq $a1,$t3,pwrLoopDone
+ 	j Mul#multiply $a0 by 2
+ 	MulForPwrReturn:
+ 	add $a0,$0,$v0
+ 	addi $a1,$a1,1
+ 	j pwrLoop
+ pwrLoopDone:
+
+ add $v0,$0,$a0
+
+ lw $a2,8($sp)
+ lw $a1,4($sp)
+ lw $a0,0($sp)
+ addi $sp,$sp,12
+ j pwrReturned
+ TwoPowerZero:
+ addi $v0,$0,1
+ j pwrReturned
+
+
+Mul:#multiplies the value is $a0 by 2
+ 
+ #uses $a0 and $a2, returns $a0*$a2
+ addi $sp,$sp,-4
+ sw $s0,0($sp) #$s0 is used as an index
+
+ add $s0,$0,$a2
+ add $v0,$0,$0
+ 
+ mulLoop:
+ 	beq $s0,$0,mulLoopExit
+ 	add $v0,$v0,$a0
+ 	addi $s0,$s0,-1
+ 	j mulLoop
+ mulLoopExit:
+ lw $s0,0($sp)
+ addi $sp,$sp,4
+ j MulForPwrReturn
+
+
+divide:
+ #this routine divides the values stord in $t7 and $s4 by that stored in $s0 and keeps the results at them
+ #$t7 <-- $t7 /(2^angInd) : yNew
+ #$s4 <-- $s4 /(2^angInd) : xNew
+ #$s1 is used to count and hence it is the final result to be stored in either of the two registers
+ #$s2 is to determin which value is being calculated in the division
+ #$t0 is used to determine whether to get out of the subtraction loop
+ #$s3 will be used to determine what path $t7(y) will take
+ #The program deals with only positive values of x but y can either be + or -
+ addi $sp,$sp,-24
+ sw $s1,0($sp)
+ sw $s2,4($sp)
+ sw $t0,8($sp)
+ sw $t1,12($sp)
+ sw $s3,16($sp)
+
+
+ 
+ addi $t1,$0,1
+ add $s3,$0,$0
+ 
+ #x will use the positive division
+ add $s2,$0,$s4
+ add $s1,$0,$0
+ j posArg
+ xIsDone:
+ add $s4,$0,$s1
+
+
+ # determining the sign of y($t7)
+ add $s2,$0,$t7
+ slt $s3,$0,$t7 #($s3 = 1) : y is positive
+ add $s1,$0,$0
+ beq $s3,$0,negArg
+ j posArg
+ yIsDone:
+ add $t7,$0,$s1
+ j divideRoutineDone
+ 
+ posArg:
+ 	beq $s2,$0,posDivDone
+ 	slt $t0,$s0,$s2
+ 	beq $s0,$s2,oneMoreStepPositive#in case $s0 = $s2
+ 	beq $t0,$0,posDivDone
+ 	oneMoreStepPositive:
+ 	sub $s2,$s2,$s0
+ 	addi $s1,$s1,1
+ 	j posArg
+ posDivDone:
+ 
+ beq $s3,$t1,yIsDone
+ j xIsDone
+
+ negArg:
+ 	beq $s2,$0,negDivDone
+ 	slt $t0,$0,$s2
+ 	beq $t0,$t1,negDivDoneWithErrorOne
+ 	
+ 	add $s2,$s2,$s0
+ 	addi $s1,$s1,-1
+ 	j negArg
+ 	negDivDoneWithErrorOne:
+ 	addi $s1,$s1,1
+ negDivDone:
+ j yIsDone
+divideRoutineDone:
+ lw $s1,0($sp)
+ lw $s2,4($sp)
+ lw $t0,8($sp)
+ lw $t1,12($sp)
+ lw $s3,16($sp)
+ addi $sp,$sp,24
+
+j divideReturned
+
+done:
